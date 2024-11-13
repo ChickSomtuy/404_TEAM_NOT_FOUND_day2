@@ -1,0 +1,102 @@
+    <!-- for Chart -->
+
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WebSocket Test with Chart.js</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <h1>WebSocket Test with Chart</h1>
+    <form action="" onsubmit="connect(event)">
+        <label>API Key:</label>
+        <input type="text" id="api_key" autocomplete="off"/>
+        <div class="number" id="testNumber">0</div>
+        <button>Connect</button>
+    </form>
+    <pre id="messages"></pre>
+    
+    <!-- Chart Container -->
+    <canvas id="myChart" width="400" height="200"></canvas>
+    
+    <script>
+        var ws;
+        var chart;
+        
+        // Initialize an empty data array for the chart
+        var dataPoints = [];
+
+        // Connect to WebSocket
+        function connect(event) {
+            var apiKey = document.getElementById("api_key").value;
+            ws = new WebSocket("ws://technest.ddns.net:8001/ws");
+
+            ws.onopen = function(event) {
+                ws.send(apiKey);
+            };
+
+            ws.onmessage = function(event) {
+                console.log(event.data);
+                let num = document.getElementById('testNumber');
+                const dataJson = JSON.parse(event.data);
+
+                // Extract the "Power" value from the data
+                for (const [key, value] of Object.entries(dataJson)) {
+                    if (typeof value === 'object') {
+                        for (const [key2, value2] of Object.entries(value)) {
+                            if (key2 === 'Power') {
+                                num.innerText = value2;  // Update display text
+                                
+                                // Update chart data
+                                dataPoints.push(value2);
+                                if (dataPoints.length > 20) { // Limit to last 20 points
+                                    dataPoints.shift();
+                                }
+                            }
+                        }
+                    }
+                }
+            };
+            event.preventDefault();
+        }
+
+        // Initialize the Chart.js line chart
+        function initChart() {
+            var ctx = document.getElementById('myChart').getContext('2d');
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: Array.from({length: dataPoints.length}, (_, i) => i + 1), // Labels for X-axis
+                    datasets: [{
+                        label: 'Power',
+                        data: dataPoints,
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        borderWidth: 2,
+                        fill: false
+                    }]
+                },
+                options: {
+                    scales: {
+                        x: { title: { display: true, text: 'Time' } },
+                        y: { title: { display: true, text: 'Power' } }
+                    }
+                }
+            });
+        }
+
+        // Update the chart with new data every 2 seconds
+        function updateChart() {
+            chart.data.labels = Array.from({length: dataPoints.length}, (_, i) => i + 1);
+            chart.data.datasets[0].data = dataPoints;
+            chart.update();
+        }
+
+        // Initialize the chart on page load
+        window.onload = function() {
+            initChart();
+            setInterval(updateChart, 2000); // Update chart every 2 seconds
+        };
+    </script>
+</body>
+</html>
